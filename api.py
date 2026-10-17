@@ -1,62 +1,65 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+import time
+from collections import defaultdict, deque
+from pathlib import Path
+
 import httpx
-import os
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 
+from scanner import UnsafeURL, analyze
 
+BASE_DIR = Path(__file__).parent
 app = FastAPI(title="HeaderHawk API")
 
-SECURITY_HEADERS = {
-    "strict-transport-security": 20,
-    "content-security-policy": 20,
-    "x-frame-options": 15,
-    "x-content-type-options": 15,
-    "referrer-policy": 15,
-    "permissions-policy": 15,
-}
+RATE_LIMIT = 10   # maksimal request
+RATE_WINDOW = 60  # per berapa detik
+_hits = defaultdict(deque)
+
+
+def client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def check_rate_limit(ip: str) -> None:
+    now = time.time()
+    q = _hits[ip]
+    while q and now - q[0] > RATE_WINDOW:
+        q.popleft()
+    if len(q) >= RATE_LIMIT:
+        raise HTTPException(status_code=429,
+                            detail="Terlalu banyak permintaan, coba lagi sebentar")
+    q.append(now)
 
 
 @app.get("/")
 def read_root():
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
+    index = BASE_DIR / "index.html"
+    if index.exists():
+        return FileResponse(index)
     return {"message": "Selamat datang di HeaderHawk API!"}
 
 
 @app.get("/scan")
-def scan_url(url: str):
+def scan_url(url: str, request: Request):
     """Scan security headers dari URL target via API."""
+    check_rate_limit(client_ip(request))
+    if len(url) > 2048:
+        raise HTTPException(status_code=400, detail="URL terlalu panjang")
     try:
-        response = httpx.get(url, timeout=10, follow_redirects=True)
-        headers = response.headers
-
-        score = 0
-        total_weight = sum(SECURITY_HEADERS.values())
-        found_headers = {}
-        missing_headers = []
-
-        for header, weight in SECURITY_HEADERS.items():
-            if header in headers:
-                score += weight
-                found_headers[header] = headers[header]
-            else:
-                missing_headers.append(header)
-
-        final_score = int((score / total_weight) * 100)
-
-        if final_score >= 90: grade = "A"
-        elif final_score >= 75: grade = "B"
-        elif final_score >= 60: grade = "C"
-        elif final_score >= 40: grade = "D"
-        else: grade = "F"
-
-        return {
-            "url": url,
-            "score": final_score,
-            "grade": grade,
-            "found_headers": found_headers,
-            "missing_headers": missing_headers
-        }
-    except Exception as e:
+        result = analyze(url)
+    except UnsafeURL as e:
         raise HTTPException(status_code=400, detail=str(e))
-
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=400,
+            detail="Gagal mengakses target (timeout atau koneksi ditolak)")
+    return {
+        "url": result["url"],
+        "score": result["score"],
+        "grade": result["grade"],
+        "found_headers": result["found"],
+        "missing_headers": result["missing"],
+    }

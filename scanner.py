@@ -1,3 +1,8 @@
+import ipaddress
+import json
+import socket
+from urllib.parse import urlparse
+
 import httpx
 import typer
 from rich.console import Console
@@ -14,52 +19,88 @@ SECURITY_HEADERS = {
     "referrer-policy": 15,
     "permissions-policy": 15,
 }
+GRADES = [(90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F")]
+MAX_REDIRECTS = 5
+
+
+class UnsafeURL(ValueError):
+    """URL ditolak: skema salah atau mengarah ke jaringan internal."""
+
+
+def normalize_url(url: str) -> str:
+    url = url.strip()
+    return url if "://" in url else "https://" + url
+
+
+def ensure_public(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise UnsafeURL("Hanya http/https yang diizinkan")
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
+    except socket.gaierror:
+        raise UnsafeURL("Domain tidak ditemukan")
+    for info in infos:
+        if not ipaddress.ip_address(info[4][0]).is_global:
+            raise UnsafeURL("Alamat internal/privat tidak diizinkan")
+
+
+def fetch_headers(url: str):
+    """Setiap redirect divalidasi ulang sebelum diikuti."""
+    with httpx.Client(timeout=10, follow_redirects=False) as client:
+        for _ in range(MAX_REDIRECTS + 1):
+            ensure_public(url)
+            resp = client.get(url)
+            if resp.is_redirect and "location" in resp.headers:
+                url = str(resp.url.join(resp.headers["location"]))
+                continue
+            return resp.headers, str(resp.url)
+    raise UnsafeURL("Terlalu banyak redirect")
+
+
+def analyze(url: str) -> dict:
+    headers, final_url = fetch_headers(normalize_url(url))
+    found, missing, score = {}, [], 0
+    total = sum(SECURITY_HEADERS.values())
+    for name, weight in SECURITY_HEADERS.items():
+        if name in headers:
+            found[name] = headers[name]
+            score += weight
+        else:
+            missing.append(name)
+    final = int(score / total * 100)
+    grade = next(g for limit, g in GRADES if final >= limit)
+    return {"url": final_url, "score": final, "grade": grade,
+            "found": found, "missing": missing}
+
 
 @app.command()
-def scan(url: str):
+def scan(url: str, as_json: bool = typer.Option(False, "--json", help="Output JSON")):
     """Scan security headers dari URL target."""
-    console.print(f"[bold blue]Scanning:[/bold blue] {url}\n")
-
     try:
-        response = httpx.get(url, timeout=10, follow_redirects=True)
-        headers = response.headers
-
-        table = Table(title=f"Security Headers Report: {url}")
-        table.add_column("Headers", style="cyan")
-        table.add_column("Status", style="magenta")
-        table.add_column("Value", style="green")
-
-        score = 0
-        total_weight = sum(SECURITY_HEADERS.values())
-
-        for header, weight in SECURITY_HEADERS.items():
-            if header in headers:
-                table.add_row(header, "Ada", headers[header][:50] + "...")
-                score += weight
-            else:
-                 table.add_row(header, "Tidak Ada", "_")
-
-
-        final_score = int((score / total_weight) * 100)
-
-        console.print(table)
-
-
-        if final_score >= 90:
-            grade = "A"
-        elif final_score >= 75:
-            grade = "B"
-        elif final_score >= 60:
-            grade = "C"
-        elif final_score >= 40:
-            grade = "D"
-        else:
-            grade = "F"
-
-        console.print(f"\n[bold]Skor Keamanan:[/bold] {final_score}/100 | [bold]Grade:[/bold] {grade}")
-
-    except Exception as e:
+        result = analyze(url)
+    except (UnsafeURL, httpx.HTTPError) as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    if as_json:
+        print(json.dumps(result, indent=2))
+        return
+
+    table = Table(title=f"Security Headers Report: {result['url']}")
+    table.add_column("Header", style="cyan")
+    table.add_column("Status", style="magenta")
+    table.add_column("Value", style="green")
+    for name in SECURITY_HEADERS:
+        if name in result["found"]:
+            v = result["found"][name]
+            table.add_row(name, "Ada", v if len(v) <= 50 else v[:50] + "...")
+        else:
+            table.add_row(name, "Tidak Ada", "-")
+    console.print(table)
+    console.print(f"\n[bold]Skor:[/bold] {result['score']}/100 | "
+                  f"[bold]Grade:[/bold] {result['grade']}")
+
 
 if __name__ == "__main__":
     app()
