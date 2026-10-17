@@ -53,3 +53,11 @@ Only scan sites you own or have permission to test.
 
 ## License
 MIT
+
+![HeaderHawk scan result](Screenshot_20261017-131159.png)
+
+
+
+
+
+![Blocked internal address](Screenshot_20261017-131213.png)
