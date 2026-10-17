@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeaderHawk Web UI</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; text-align: center; padding-top: 50px; margin: 0; }
+        h1 { color: #58a6ff; }
+        .container { background-color: #161b22; width: 90%; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 10px; border: 1px solid #30363d; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        input[type="text"] { padding: 12px; width: 70%; border-radius: 5px; border: 1px solid #30363d; background-color: #0d1117; color: white; outline: none; }
+        button { padding: 12px 20px; border-radius: 5px; border: none; background-color: #238636; color: white; font-weight: bold; cursor: pointer; margin-left: 10px; transition: 0.3s; }
+        button:hover { background-color: #2ea043; }
+        #result { margin-top: 20px; text-align: left; display: none; background: #0d1117; padding: 20px; border-radius: 5px; border: 1px solid #30363d; word-wrap: break-word; }
+        .grade { font-size: 24px; font-weight: bold; }
+        ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦅 HeaderHawk Web UI</h1>
+        <p>Masukkan URL untuk scan security header:</p>
+        <input type="text" id="urlInput" placeholder="https://example.com">
+        <button onclick="scanURL()">Scan!</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function scanURL() {
+            const url = document.getElementById('urlInput').value;
+            const resultDiv = document.getElementById('result');
+            if (!url) return alert('Masukkan URL dulu teman!');
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Sedang memindai... ⏳';
+            
+            try {
+                const response = await fetch(`/scan?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const color = data.grade === 'A' || data.grade === 'B' ? '#3fb950' : (data.grade === 'F' ? '#f85149' : '#d29922');
+                    resultDiv.innerHTML = `
+                        <h3>Hasil Scan: ${data.url}</h3>
+                        <p>Skor: <strong>${data.score}/100</strong> | Grade: <span class="grade" style="color: ${color}">${data.grade}</span></p>
+                        <p><strong>Header yang Ditemukan:</strong></p>
+                        <ul>${Object.keys(data.found_headers).map(h => `<li>${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
+                        <p><strong>Header yang Hilang:</strong></p>
+                        <ul>${data.missing_headers.map(h => `<li style="color: #f85149;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: #f85149;">Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: #f85149;">Terjadi kesalahan jaringan.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 import httpx
+import os
 
 
 app = FastAPI(title="HeaderHawk API")
@@ -16,6 +18,8 @@ SECURITY_HEADERS = {
 
 @app.get("/")
 def read_root():
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
     return {"message": "Selamat datang di HeaderHawk API!"}
 
 
@@ -31,7 +35,7 @@ def scan_url(url: str):
         found_headers = {}
         missing_headers = []
 
-        for header, weight in SECURITY_HEADERS.item():
+        for header, weight in SECURITY_HEADERS.items():
             if header in headers:
                 score += weight
                 found_headers[header] = headers[header]
