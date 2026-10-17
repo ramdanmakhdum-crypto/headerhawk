@@ -14,6 +14,7 @@
         #result { margin-top: 20px; text-align: left; display: none; background: #0d1117; padding: 20px; border-radius: 5px; border: 1px solid #30363d; word-wrap: break-word; }
         .grade { font-size: 24px; font-weight: bold; }
         ul { padding-left: 20px; }
+        .error { color: #f85149; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -40,19 +41,28 @@
                 
                 if (response.ok) {
                     const color = data.grade === 'A' || data.grade === 'B' ? '#3fb950' : (data.grade === 'F' ? '#f85149' : '#d29922');
+                    
+                    // Cek apakah ada info bocor
+                    let leakHtml = '';
+                    if (Object.keys(data.leaked_info).length > 0) {
+                        leakHtml = `<p><strong style="color: #d29922;">⚠️ Informasi Sistem Bocor:</strong></p>
+                                    <ul>${Object.keys(data.leaked_info).map(h => `<li style="color: #d29922;">${h}: ${data.leaked_info[h]}</li>`).join('')}</ul>`;
+                    }
+
                     resultDiv.innerHTML = `
                         <h3>Hasil Scan: ${data.url}</h3>
                         <p>Skor: <strong>${data.score}/100</strong> | Grade: <span class="grade" style="color: ${color}">${data.grade}</span></p>
                         <p><strong>Header yang Ditemukan:</strong></p>
-                        <ul>${Object.keys(data.found_headers).map(h => `<li>${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
+                        <ul>${Object.keys(data.found_headers).map(h => `<li style="color: #3fb950;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
                         <p><strong>Header yang Hilang:</strong></p>
                         <ul>${data.missing_headers.map(h => `<li style="color: #f85149;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
+                        ${leakHtml}
                     `;
                 } else {
-                    resultDiv.innerHTML = `<span style="color: #f85149;">Error: ${data.detail}</p>`;
+                    resultDiv.innerHTML = `<p class="error">Error: ${data.detail}</p>`;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `<span style="color: #f85149;">Terjadi kesalahan jaringan.</p>`;
+                resultDiv.innerHTML = `<p class="error">Terjadi kesalahan jaringan atau server sedang sibuk.</p>`;
             }
         }
     </script>
