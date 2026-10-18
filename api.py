@@ -1,6 +1,7 @@
 import time
 import socket
 import ipaddress
+from ai_engine import analyze_with_ai
 from collections import defaultdict, deque
 from pathlib import Path
 from urllib.parse import urlparse
@@ -150,3 +151,17 @@ def read_dashboard():
     if dashboard.exists():
         return FileResponse(dashboard)
     return {"error": "File dashboard.html tidak ditemukan"}
+
+from pydantic import BaseModel
+
+class ScanResult(BaseModel):
+    url: str
+    score: int
+    grade: str
+    missing_headers: list
+    leaked_info: dict
+
+@app.post("/ai-analyze")
+def ai_analyze(data: ScanResult):
+    result = analyze_with_ai(data.dict())
+    return {"analysis": result}
