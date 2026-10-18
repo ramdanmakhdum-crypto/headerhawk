@@ -143,3 +143,10 @@ def scan_url(url: str, request: Request):
         "missing_headers": result["missing"],
         "leaked_info": result["leaked_info"]
     }
+
+@app.get("/dashboard")
+def read_dashboard():
+    dashboard = BASE_DIR / "dashboard.html"
+    if dashboard.exists():
+        return FileResponse(dashboard)
+    return {"error": "File dashboard.html tidak ditemukan"}

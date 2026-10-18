@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ramdan Security Suite</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f7f6; color: #333; text-align: center; padding: 20px 10px; overflow-x: hidden; }
+        
+        h1 { font-size: 22px; color: #1a237e; margin-bottom: 5px; }
+        p.subtitle { font-size: 14px; color: #555; margin-bottom: 30px; }
+
+        .tree { display: flex; flex-direction: column; align-items: center; position: relative; }
+        
+        .node { background: white; border-radius: 12px; padding: 15px 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 140px; margin: 10px; position: relative; z-index: 2; border: 2px solid #e0e0e0;}
+        .node.ceo { border-color: #1a237e; background: #e8eaf6; width: 160px; }
+        .node.ceo .icon { font-size: 30px; margin-bottom: 5px; }
+        
+        .node .icon { font-size: 24px; margin-bottom: 5px; display: block; }
+        .node .title { font-weight: bold; font-size: 13px; margin-bottom: 3px; color: #1a237e;}
+        .node .desc { font-size: 11px; color: #666; }
+
+        /* Garis Penghubung */
+        .line-vertical { width: 2px; height: 20px; background: #aaa; }
+        
+        .branch { display: flex; justify-content: center; width: 100%; position: relative; flex-wrap: wrap;}
+        .branch::before {
+            content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 80%; height: 2px; background: #aaa;
+        }
+        .branch .line-vertical { height: 20px; }
+        
+        .children { display: flex; justify-content: center; gap: 10px; width: 100%; flex-wrap: wrap; }
+
+        /* Warna Tema */
+        .web-node { border-top: 5px solid #3fb950; }
+        .net-node { border-top: 5px solid #58a6ff; }
+        .ai-node { border-top: 5px solid #d29922; }
+
+        /* Tombol Aksi */
+        .btn-action { display: block; margin-top: 8px; background: #1a237e; color: white; text-decoration: none; padding: 6px; border-radius: 5px; font-size: 11px; font-weight: bold; }
+        .btn-action:hover { background: #0d1556; }
+        
+        .coming-soon { font-size: 10px; background: #ffeb3b; color: #000; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Kenali Tim Keamanan Saya</h1>
+    <p class="subtitle">Tools di balik setiap perlindungan</p>
+
+    <div class="tree">
+        <!-- CEO -->
+        <div class="node ceo">
+            <span class="icon">👨‍💻</span>
+            <div class="title">CEO</div>
+            <div class="desc">Ramdan</div>
+        </div>
+
+        <div class="line-vertical"></div>
+
+        <!-- Divisi Bawahan -->
+        <div class="branch">
+            <div class="children">
+                
+                <!-- Divisi Web Security -->
+                <div>
+                    <div class="line-vertical"></div>
+                    <div class="node web-node">
+                        <span class="icon">🌐</span>
+                        <div class="title">Kepala Web Security</div>
+                        <div class="desc">HeaderHawk API</div>
+                        <a href="/" class="btn-action" target="_blank">Buka Web</a>
+                    </div>
+                </div>
+
+                <!-- Divisi Network Security -->
+                <div>
+                    <div class="line-vertical"></div>
+                    <div class="node net-node">
+                        <span class="icon">📡</span>
+                        <div class="title">Kepala Network</div>
+                        <div class="desc">Wi-Fi Scanner CLI</div>
+                        <a href="#" class="btn-action" onclick="alert('Jalankan di terminal: python3 security_suite.py')">Cek Terminal</a>
+                    </div>
+                </div>
+
+                <!-- Divisi AI -->
+                <div>
+                    <div class="line-vertical"></div>
+                    <div class="node ai-node">
+                        <span class="icon">🤖</span>
+                        <div class="title">Kepala AI</div>
+                        <div class="desc">AI Assistant</div>
+                        <span class="coming-soon">Segera Hadir</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
