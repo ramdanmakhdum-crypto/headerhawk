@@ -32,6 +32,8 @@
 
     <script>
         let currentScanData = null;
+        // URL API Backend (Render)
+        const API_BASE_URL = "https://headerhawk-r8zd.onrender.com";
 
         async function scanURL() {
             const url = document.getElementById('urlInput').value;
@@ -44,14 +46,13 @@
             resultDiv.style.display = 'block';
             resultDiv.innerHTML = 'Sedang memindai... ⏳ (Jika server baru bangun, ini butuh 30-60 detik)';
             aiDiv.style.display = 'none';
-            scanBtn.disabled = true; // Matikan tombol sementara
+            scanBtn.disabled = true;
             
-            // Timeout 60 detik untuk mengakomodasi server Render yang tidur
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); 
             
             try {
-                const response = await fetch(`/scan?url=${encodeURIComponent(url)}`, { signal: controller.signal });
+                const response = await fetch(`${API_BASE_URL}/scan?url=${encodeURIComponent(url)}`, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 
                 const data = await response.json();
@@ -88,7 +89,7 @@
                 }
             }
             
-            scanBtn.disabled = false; // Nyalakan tombol lagi
+            scanBtn.disabled = false;
         }
 
         async function analyzeWithAI() {
@@ -103,7 +104,7 @@
             aiDiv.innerHTML = "Menghubungi asisten AI, mohon tunggu...";
             
             try {
-                const response = await fetch('/ai-analyze', {
+                const response = await fetch(`${API_BASE_URL}/ai-analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currentScanData)

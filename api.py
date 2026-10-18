@@ -1,7 +1,6 @@
 import time
 import socket
 import ipaddress
-from ai_engine import analyze_with_ai
 from collections import defaultdict, deque
 from pathlib import Path
 from urllib.parse import urlparse
@@ -9,9 +8,22 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+from ai_engine import analyze_with_ai
+from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).parent
 app = FastAPI(title="HeaderHawk API")
+
+# --- IZIN CORS (Agar Netlify bisa akses Render) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ==========================================
 # 1. KONFIGURASI SCANNER
@@ -31,7 +43,6 @@ class UnsafeURL(Exception):
     pass
 
 def analyze(target_url: str) -> dict:
-    # Proteksi SSRF: Cegah scan ke IP lokal / localhost
     parsed = urlparse(target_url)
     if parsed.scheme not in ("http", "https"):
         raise UnsafeURL("URL harus menggunakan http:// atau https://")
@@ -51,7 +62,6 @@ def analyze(target_url: str) -> dict:
     except socket.gaierror:
         raise UnsafeURL("Domain tidak dapat ditemukan")
 
-    # Lakukan Scan
     try:
         response = httpx.get(target_url, timeout=10, follow_redirects=True)
     except httpx.HTTPError:
@@ -64,7 +74,6 @@ def analyze(target_url: str) -> dict:
     missing_headers = []
     leaked_info = {}
 
-    # Cek Security Headers
     for header, weight in SECURITY_HEADERS.items():
         if header in headers:
             score += weight
@@ -72,7 +81,6 @@ def analyze(target_url: str) -> dict:
         else:
             missing_headers.append(header)
 
-    # Cek Kebocoran Informasi (Info Leakage)
     for leak_header in INFO_LEAK_HEADERS:
         if leak_header in headers:
             leaked_info[leak_header] = headers[leak_header]
@@ -123,6 +131,13 @@ def read_root():
         return FileResponse(index)
     return {"message": "Selamat datang di HeaderHawk API!"}
 
+@app.get("/dashboard")
+def read_dashboard():
+    dashboard = BASE_DIR / "dashboard.html"
+    if dashboard.exists():
+        return FileResponse(dashboard)
+    return {"error": "File dashboard.html tidak ditemukan"}
+
 @app.get("/scan")
 def scan_url(url: str, request: Request):
     check_rate_limit(client_ip(request))
@@ -145,15 +160,9 @@ def scan_url(url: str, request: Request):
         "leaked_info": result["leaked_info"]
     }
 
-@app.get("/dashboard")
-def read_dashboard():
-    dashboard = BASE_DIR / "dashboard.html"
-    if dashboard.exists():
-        return FileResponse(dashboard)
-    return {"error": "File dashboard.html tidak ditemukan"}
-
-from pydantic import BaseModel
-
+# ==========================================
+# 3. AI ENDPOINT
+# ==========================================
 class ScanResult(BaseModel):
     url: str
     score: int
