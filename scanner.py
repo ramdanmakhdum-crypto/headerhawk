@@ -19,6 +19,7 @@ SECURITY_HEADERS = {
     "referrer-policy": 15,
     "permissions-policy": 15,
 }
+LEAK_HEADERS = ["server", "x-powered-by", "x-aspnet-version", "x-generator"]
 GRADES = [(90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F")]
 MAX_REDIRECTS = 5
 
@@ -71,7 +72,8 @@ def analyze(url: str) -> dict:
     final = int(score / total * 100)
     grade = next(g for limit, g in GRADES if final >= limit)
     return {"url": final_url, "score": final, "grade": grade,
-            "found": found, "missing": missing}
+            "found": found, "missing": missing,
+            "leaked_info": {h: headers[h] for h in LEAK_HEADERS if h in headers}}
 
 
 @app.command()

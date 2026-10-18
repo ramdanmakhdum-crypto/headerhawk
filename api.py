@@ -157,6 +157,7 @@ def scan_url(url: str, request: Request):
         "grade": result["grade"],
         "found_headers": result["found"],
         "missing_headers": result["missing"],
+        "leaked_info": result["leaked_info"],
         "leaked_info": result["leaked_info"]
     }
 
@@ -174,3 +175,49 @@ class ScanResult(BaseModel):
 def ai_analyze(data: ScanResult):
     result = analyze_with_ai(data.dict())
     return {"analysis": result}
+
+
+from ai_engine import analyze_with_ai  # noqa: E402
+
+AI_LIMIT = 3         # per menit per IP
+AI_DAILY_CAP = 200   # total per hari
+_ai_hits = defaultdict(deque)
+_ai_day = {"date": "", "count": 0}
+
+
+def check_ai_limit(ip: str) -> None:
+    today = time.strftime("%Y-%m-%d")
+    if _ai_day["date"] != today:
+        _ai_day["date"], _ai_day["count"] = today, 0
+    if _ai_day["count"] >= AI_DAILY_CAP:
+        raise HTTPException(status_code=429, detail="Kuota AI hari ini habis, coba lagi besok")
+    now = time.time()
+    q = _ai_hits[ip]
+    while q and now - q[0] > RATE_WINDOW:
+        q.popleft()
+    if len(q) >= AI_LIMIT:
+        raise HTTPException(status_code=429, detail="Terlalu banyak permintaan AI, coba lagi sebentar")
+    q.append(now)
+    _ai_day["count"] += 1
+
+
+@app.get("/explain")
+def explain_url(url: str, request: Request):
+    """Scan lalu minta Gemini menjelaskan hasilnya."""
+    check_ai_limit(client_ip(request))
+    if len(url) > 2048:
+        raise HTTPException(status_code=400, detail="URL terlalu panjang")
+    try:
+        result = analyze(url)
+    except UnsafeURL as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx.HTTPError:
+        raise HTTPException(status_code=400, detail="Gagal mengakses target")
+    data = {
+        "url": result["url"],
+        "score": result["score"],
+        "grade": result["grade"],
+        "missing_headers": result["missing"],
+        "leaked_info": result["leaked_info"],
+    }
+    return {"explanation": analyze_with_ai(data)}
