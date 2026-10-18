@@ -26,7 +26,7 @@
         <h1>🦅 HeaderHawk Web UI</h1>
         <p>Masukkan URL untuk scan security header:</p>
         <input type="text" id="urlInput" placeholder="https://example.com">
-        <button onclick="scanURL()">Scan!</button>
+        <button id="scanBtn" onclick="scanURL()">Scan!</button>
         <div id="result"></div>
     </div>
 
@@ -36,20 +36,28 @@
         async function scanURL() {
             const url = document.getElementById('urlInput').value;
             const resultDiv = document.getElementById('result');
+            const scanBtn = document.getElementById('scanBtn');
             const aiDiv = document.getElementById('aiResult');
             
             if (!url) return alert('Masukkan URL dulu teman!');
             
             resultDiv.style.display = 'block';
-            resultDiv.innerHTML = 'Sedang memindai... ⏳';
-            aiDiv.style.display = 'none'; // Sembunyikan hasil AI sebelumnya
+            resultDiv.innerHTML = 'Sedang memindai... ⏳ (Jika server baru bangun, ini butuh 30-60 detik)';
+            aiDiv.style.display = 'none';
+            scanBtn.disabled = true; // Matikan tombol sementara
+            
+            // Timeout 60 detik untuk mengakomodasi server Render yang tidur
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); 
             
             try {
-                const response = await fetch(`/scan?url=${encodeURIComponent(url)}`);
+                const response = await fetch(`/scan?url=${encodeURIComponent(url)}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
                 const data = await response.json();
                 
                 if (response.ok) {
-                    currentScanData = data; // Simpan data untuk AI
+                    currentScanData = data;
                     const color = data.grade === 'A' || data.grade === 'B' ? '#3fb950' : (data.grade === 'F' ? '#f85149' : '#d29922');
                     
                     let leakHtml = '';
@@ -61,23 +69,26 @@
                     resultDiv.innerHTML = `
                         <h3>Hasil Scan: ${data.url}</h3>
                         <p>Skor: <strong>${data.score}/100</strong> | Grade: <span class="grade" style="color: ${color}">${data.grade}</span></p>
-                        
                         <p><strong>Header yang Ditemukan:</strong></p>
                         <ul>${Object.keys(data.found_headers).map(h => `<li style="color: #3fb950;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
-                        
                         <p><strong>Header yang Hilang:</strong></p>
                         <ul>${data.missing_headers.map(h => `<li style="color: #f85149;">${h}</li>`).join('') || '<li>Tidak ada</li>'}</ul>
-                        
                         ${leakHtml}
-                        
                         <button class="ai-btn" id="aiBtn" onclick="analyzeWithAI()">🤖 Minta Analisis AI</button>
                     `;
                 } else {
                     resultDiv.innerHTML = `<p class="error">Error: ${data.detail}</p>`;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `<p class="error">Terjadi kesalahan jaringan atau server sedang sibuk.</p>`;
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    resultDiv.innerHTML = `<p class="error">Gagal: Server terlalu lama merespons (Timeout). Silakan coba klik Scan lagi.</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Terjadi kesalahan jaringan. Periksa koneksi internetmu.</p>`;
+                }
             }
+            
+            scanBtn.disabled = false; // Nyalakan tombol lagi
         }
 
         async function analyzeWithAI() {
@@ -100,7 +111,6 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Mengubah enter (\n) dari AI menjadi baris baru di HTML
                     const formattedText = data.analysis.replace(/\n/g, '<br>');
                     aiDiv.innerHTML = `<strong style="color: #58a6ff;">Hasil Analisis AI:</strong><br><br><span style="color: #c9d1d9;">${formattedText}</span>`;
                 } else {
