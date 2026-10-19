@@ -32,7 +32,7 @@ Header hilang: {missing}
 Info bocor: {leaked_text}
 </data>
 
-Jawab maksimal 3 paragraf, bahasa Indonesia mudah dimengerti. Jelaskan risiko header yang hilang dan beri 1-2 saran perbaikan."""
+Jawab maksimal 3 paragraf, bahasa Indonesia mudah dimengerti. Jangan berasumsi platform hosting; beri contoh konfigurasi Nginx dan Apache. Jelaskan risiko header yang hilang dan beri 1-2 saran perbaikan."""
 
     try:
         client = genai.Client(api_key=api_key)
